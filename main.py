@@ -1,37 +1,83 @@
 import os
 import re
+from pickle import dump
 
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+import seaborn as sns
+
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.model_selection import train_test_split, cross_validate
+from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import accuracy_score, precision_score, confusion_matrix
+from sklearn.pipeline import Pipeline
 
 datapath = os.path.join('balanced_sentiment_dataset.csv')
 data = pd.read_csv(datapath)
 
-def tokenize(str, max_tokens=100, empty_tok=' '):
-    # Get a list of words, and non-whitespace and non-word symbols.
-    text_tokens = re.findall(
-        r'\w+|[^\w\s]',
-        # Some texts have \\n when it should be \n...
-        # Look for other things that may need cleaning up.
-        str.replace("\\n", "\n")
-    )
+print("Data dim.:")
+print(data.shape)
 
-    diff = max_tokens - len(text_tokens)
-    if diff < 0:
-        # If too many tokens, return NaN.
-        return np.nan
+vectorizer = TfidfVectorizer(
+    stop_words='english',
+    max_features=5000,
+    token_pattern='\\w+|[^\\w\\s]'
+)
 
-    # Otherwise, return padded token list and n. of
-    # non-empty tokens.
-    return text_tokens + [empty_tok] * diff
+X = data['text']
+y = data['sentiment']
 
-data['tokens'] = data['text'].map(tokenize)
+# Split the data to training and testing subsets.
 
-# Drop NaN rows.
-data = data.dropna()
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.2
+)
 
-print(data['tokens'][0])
-print(len(data['tokens'][0]))
+print("Training data dim.:")
+print(X_train.shape)
+
+model = LogisticRegression(max_iter=1000)
+model_pipeline = Pipeline([
+    ('transformer', vectorizer),
+    ('classifier', model)
+])
+
+print("Fitting...")
+
+model_pipeline.fit(X_train, y_train)
+
+print("DONE!\n")
+
+y_pred = model_pipeline.predict(X_test)
+
+acc = accuracy_score(y_test, y_pred)
+prec = precision_score(y_test, y_pred)
+
+print(f"Accuracy: {acc}")
+print(f"Precision: {prec}")
+
+print("Saving model to model.pkl...")
+
+with open("model.pkl", "wb") as f:
+    dump(model_pipeline, f, protocol=5)
+
+print("DONE!\n")
+
+# K-Fold cross validation
+
+print("Cross validating...")
+
+cv_res = cross_validate(
+    estimator=model_pipeline,
+    X=X,
+    y=y,
+    cv=5,
+    scoring=['accuracy', 'precision'],
+)
+
+print("DONE!\n")
+
+print(cv_res)
 
 
