@@ -1,6 +1,7 @@
 import os
 import re
 from pickle import dump
+from tabulate import tabulate
 
 import numpy as np
 import pandas as pd
@@ -13,17 +14,33 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import accuracy_score, precision_score, confusion_matrix
 from sklearn.pipeline import Pipeline
 
-datapath = os.path.join('balanced_sentiment_dataset.csv')
-data = pd.read_csv(datapath)
+DATA_PATH = os.path.join('balanced_sentiment_dataset.csv')
+PLOT_DIR = "plots"
+CM_PLOT_FNAME = os.path.join(PLOT_DIR, "cm.png")
+MODEL_FNAME = "model.pkl"
 
-print("Data dim.:")
-print(data.shape)
+def cm_plot(y_true, y_pred):
+    cm = confusion_matrix(y_true, y_pred)
+    sns.heatmap(cm, annot=True)
+    plt.title("Confusion Matrix")
+    plt.xlabel("Actual")
+    plt.ylabel("Predicted")
+    plt.savefig(CM_PLOT_FNAME)
 
-vectorizer = TfidfVectorizer(
-    stop_words='english',
-    max_features=5000,
-    token_pattern='\\w+|[^\\w\\s]'
-)
+def dump_model(fname):
+    with open(fname, "wb") as f:
+        dump(model_pipeline, f, protocol=5)
+
+# Logging function
+def log(msg, f, *args, **kwargs):
+    print(msg, end=' ', flush=True)
+    res = f(*args, **kwargs)
+    print("DONE!")
+    return res
+
+data = pd.read_csv(DATA_PATH)
+
+# Assign the feature and label vectors
 
 X = data['text']
 y = data['sentiment']
@@ -34,8 +51,11 @@ X_train, X_test, y_train, y_test = train_test_split(
     X, y, test_size=0.2
 )
 
-print("Training data dim.:")
-print(X_train.shape)
+vectorizer = TfidfVectorizer(
+    stop_words='english',
+    max_features=5000,
+    token_pattern='\\w+|[^\\w\\s]'
+)
 
 model = LogisticRegression(max_iter=1000)
 model_pipeline = Pipeline([
@@ -43,40 +63,44 @@ model_pipeline = Pipeline([
     ('classifier', model)
 ])
 
-print("Fitting...")
+dims = [
+        ["Total dim.", X.shape],
+        ["Train dim.", X_train.shape],
+]
 
-model_pipeline.fit(X_train, y_train)
+print(tabulate(dims))
 
-print("DONE!\n")
+log("Fitting...", model_pipeline.fit, X_train, y_train)
 
 y_pred = model_pipeline.predict(X_test)
+metrics = [
+        ["Accuracy", accuracy_score(y_test, y_pred)],
+        ["Precision", precision_score(y_test, y_pred)]
+]
+print(tabulate(metrics))
 
-acc = accuracy_score(y_test, y_pred)
-prec = precision_score(y_test, y_pred)
+log(
+    f"Saving confusion matrix plot to {CM_PLOT_FNAME}...",
+    cm_plot, y_test, y_pred
+)
 
-print(f"Accuracy: {acc}")
-print(f"Precision: {prec}")
-
-print("Saving model to model.pkl...")
-
-with open("model.pkl", "wb") as f:
-    dump(model_pipeline, f, protocol=5)
-
-print("DONE!\n")
+log(
+    f"Saving model to {MODEL_FNAME}...",
+    dump_model,
+    MODEL_FNAME
+)
 
 # K-Fold cross validation
 
-print("Cross validating...")
-
-cv_res = cross_validate(
+cv_res = log(
+    "Cross validating...",
+    cross_validate,
     estimator=model_pipeline,
     X=X,
     y=y,
     cv=5,
     scoring=['accuracy', 'precision'],
 )
-
-print("DONE!\n")
 
 print(cv_res)
 
