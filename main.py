@@ -10,7 +10,12 @@ import seaborn as sns
 
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.model_selection import train_test_split, cross_validate
+
 from sklearn.linear_model import LogisticRegression
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.svm import SVC
+from sklearn.neural_network import MLPClassifier
+
 from sklearn.metrics import accuracy_score, precision_score, confusion_matrix
 from sklearn.pipeline import Pipeline
 
@@ -57,11 +62,33 @@ vectorizer = TfidfVectorizer(
     token_pattern='\\w+|[^\\w\\s]'
 )
 
-model = LogisticRegression(max_iter=1000)
-model_pipeline = Pipeline([
+model1 = LogisticRegression(max_iter=1000)
+model_pipeline1 = Pipeline([
     ('transformer', vectorizer),
-    ('classifier', model)
+    ('classifier', model1)
 ])
+
+model2 = RandomForestClassifier(n_estimators=100)
+model_pipeline2 = Pipeline([
+    ('transformer', vectorizer),
+    ('classifier', model2)
+])
+
+model3 = SVC(max_iter=1000)
+model_pipeline3 = Pipeline([
+    ('transformer', vectorizer),
+    ('classifier', model3)
+])
+
+model4 = MLPClassifier(hidden_layer_sizes=(100,))
+model_pipeline4 = Pipeline([
+    ('transformer', vectorizer),
+    ('classifier', model4)
+])
+
+model=model4
+model_pipeline=model_pipeline4
+
 
 dims = [
         ["Total dim.", X.shape],
