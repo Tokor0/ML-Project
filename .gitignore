@@ -208,3 +208,6 @@ __marimo__/
 
 # Nix
 shell.nix
+
+# Model output files
+*.pkl
