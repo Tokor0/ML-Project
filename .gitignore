@@ -210,4 +210,4 @@ __marimo__/
 shell.nix
 
 # Model output files
-*.pkl
+models/*.pkl

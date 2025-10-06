@@ -12,12 +12,6 @@ from sklearn.model_selection import train_test_split, cross_validate
 
 from sklearn.linear_model import LogisticRegression
 from sklearn.ensemble import RandomForestClassifier
-<<<<<<< HEAD
-from sklearn.svm import SVC
-from sklearn.neural_network import MLPClassifier
-
-from sklearn.metrics import accuracy_score, precision_score, confusion_matrix
-=======
 from sklearn.metrics import (
     accuracy_score,
     precision_score,
@@ -25,7 +19,6 @@ from sklearn.metrics import (
     roc_curve,
     roc_auc_score,
 )
->>>>>>> bcc428d (Added random forest classifier)
 from sklearn.pipeline import Pipeline
 
 DATA_PATH = os.path.join("balanced_sentiment_dataset.csv")
@@ -95,13 +88,6 @@ vectorizer = TfidfVectorizer(
     stop_words="english", max_features=5000, token_pattern="\\w+|[^\\w\\s]"
 )
 
-<<<<<<< HEAD
-model1 = LogisticRegression(max_iter=1000)
-model_pipeline1 = Pipeline([
-    ('transformer', vectorizer),
-    ('classifier', model1)
-])
-=======
 models = [
     ("logReg", LogisticRegression(max_iter=1000)),
     ("randForest", RandomForestClassifier(criterion="log_loss")),
@@ -110,30 +96,6 @@ model_pipelines = [
     (model[0], Pipeline([("transformer", vectorizer), ("classifier", model[1])]))
     for model in models
 ]
-# model_pipeline = Pipeline([("transformer", vectorizer), ("classifier", model)])
->>>>>>> bcc428d (Added random forest classifier)
-
-model2 = RandomForestClassifier(n_estimators=100)
-model_pipeline2 = Pipeline([
-    ('transformer', vectorizer),
-    ('classifier', model2)
-])
-
-model3 = SVC(max_iter=1000)
-model_pipeline3 = Pipeline([
-    ('transformer', vectorizer),
-    ('classifier', model3)
-])
-
-model4 = MLPClassifier(hidden_layer_sizes=(100,))
-model_pipeline4 = Pipeline([
-    ('transformer', vectorizer),
-    ('classifier', model4)
-])
-
-model=model4
-model_pipeline=model_pipeline4
-
 
 dims = [
     ["Total dim.", X.shape],
