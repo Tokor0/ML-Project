@@ -26,8 +26,8 @@ DATA_PATH = os.path.join("balanced_sentiment_dataset.csv")
 PLOT_DIR = "plots"
 MODEL_DIR = "models"
 TABLE_DIR = "tables"
-CM_PLOT_FNAME = "-cm.png"
-ROC_PLOT_FNAME = "-roc.png"
+CM_PLOT_FNAME = "-cm.svg"
+ROC_PLOT_FNAME = "-roc.svg"
 MODEL_FNAME = "-model.pkl"
 TABLE_FNAME = "table.tex"
 
@@ -37,7 +37,7 @@ def cm_plot(y_true, y_pred, mname):
     cm = confusion_matrix(y_true, y_pred)
     plt.figure(f"{mname}-cm")
     sns.heatmap(cm, annot=True)
-    plt.title("Confusion Matrix")
+    plt.title(f"Confusion Matrix for {mname}")
     plt.xlabel("Actual")
     plt.ylabel("Predicted")
     plt.savefig(os.path.join(PLOT_DIR, mname + CM_PLOT_FNAME))
@@ -49,7 +49,7 @@ def roc_plot(y_true, y_score, mname):
     plt.figure(f"{mname}-roc")
     plt.plot([0, 1], [0, 1], linestyle=":", color="gray")
     plt.plot(fpr, tpr)
-    plt.title("ROC Curve")
+    plt.title(f"ROC Curve for {mname}")
     plt.xlabel("False positive rate")
     plt.ylabel("True positive rate")
     plt.savefig(os.path.join(PLOT_DIR, mname + ROC_PLOT_FNAME))
