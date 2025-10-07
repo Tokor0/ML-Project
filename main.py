@@ -157,7 +157,7 @@ for model_name, model_pipeline in model_pipelines:
     y_score = model_pipeline.predict_proba(X_test)[:, 1]
     metric = [
         ["Training error", 1 - accuracy_score(y_train, y_train_pred)],
-        ["Validation error", 0],  # 1 - stats[1]],
+        ["Validation error", 1 - stats[1]],
         ["Test error", 1 - accuracy_score(y_test, y_pred)],
         ["Test precision", precision_score(y_test, y_pred)],
         ["Test ROC AUC", roc_auc_score(y_test, y_pred)],
@@ -203,10 +203,10 @@ cv_headers = [
 
 metrics_headers = [
     "Model",
-    "Training error",
-    "Validation error",
+    "Train error",
+    "Valid. error",
     "Test error",
-    "Test precision",
+    "Test prec.",
     "Test ROC AUC",
 ]
 
