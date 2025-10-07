@@ -21,14 +21,18 @@ from sklearn.metrics import (
 )
 from sklearn.pipeline import Pipeline
 
+# Some constants
 DATA_PATH = os.path.join("balanced_sentiment_dataset.csv")
 PLOT_DIR = "plots"
 MODEL_DIR = "models"
+TABLE_DIR = "tables"
 CM_PLOT_FNAME = "-cm.png"
 ROC_PLOT_FNAME = "-roc.png"
 MODEL_FNAME = "-model.pkl"
+TABLE_FNAME = "table.tex"
 
 
+# Function to save a confusion matrix plot from a given model
 def cm_plot(y_true, y_pred, mname):
     cm = confusion_matrix(y_true, y_pred)
     plt.figure(f"{mname}-cm")
@@ -39,6 +43,7 @@ def cm_plot(y_true, y_pred, mname):
     plt.savefig(os.path.join(PLOT_DIR, mname + CM_PLOT_FNAME))
 
 
+# Function to save an ROC plot from a given model
 def roc_plot(y_true, y_score, mname):
     fpr, tpr, _ = roc_curve(y_true, y_score)
     plt.figure(f"{mname}-roc")
@@ -50,19 +55,26 @@ def roc_plot(y_true, y_score, mname):
     plt.savefig(os.path.join(PLOT_DIR, mname + ROC_PLOT_FNAME))
 
 
+# Function to dump the model object for later use.
 def dump_model(mname):
-    with open(os.path.join(MODEL_DIR, mname + MODEL_FNAME), "wb") as f:
+    with open(os.path.join(MODEL_DIR, f"{mname}-{MODEL_FNAME}"), "wb") as f:
         dump(model_pipeline, f, protocol=5)
 
 
 # Function for producing a tabulable structure
 # from the return type of cross_validate.
-def mean_std_stats(cv_res, *args):
-    res = []
-    for a in args:
-        res.append([f"Mean {a[0]}", np.mean(cv_res[a[1]])])
-        res.append([f"StD {a[0]}", np.std(cv_res[a[1]])])
+def mean_std_stats(m_name, cv_res, *args):
+    res = [m_name]
+    for key in args:
+        res.append(np.mean(cv_res[key]))
+        res.append(np.std(cv_res[key]))
     return res
+
+
+# Function to save a table in latex format.
+def save_table(table, name, mname, headers=None, floatfmt=".3f"):
+    with open(os.path.join(TABLE_DIR, f"{mname}-{name}-{TABLE_FNAME}"), "w") as f:
+        f.write(tabulate(table, tablefmt="latex", headers=headers, floatfmt=floatfmt))
 
 
 # Logging function
@@ -73,53 +85,91 @@ def log(msg, f, *args, **kwargs):
     return res
 
 
+# Read raw data
 data = pd.read_csv(DATA_PATH)
 
 # Assign the feature and label vectors
-
 X = data["text"]
 y = data["sentiment"]
 
 # Split the data to training and testing subsets.
-
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2)
-
-vectorizer = TfidfVectorizer(
-    stop_words="english", max_features=5000, token_pattern="\\w+|[^\\w\\s]"
-)
-
-models = [
-    ("logReg", LogisticRegression(max_iter=1000)),
-    ("randForest", RandomForestClassifier(criterion="log_loss")),
-]
-model_pipelines = [
-    (model[0], Pipeline([("transformer", vectorizer), ("classifier", model[1])]))
-    for model in models
-]
-
 dims = [
     ["Total dim.", X.shape],
     ["Train dim.", X_train.shape],
 ]
 
+# Initialize the TF-IDF vectorizer for word embedding.
+vectorizer = TfidfVectorizer(
+    stop_words="english", max_features=5000, token_pattern="\\w+|[^\\w\\s]"
+)
+
+# Model pipeline definitions.
+models = [
+    ("LogReg", LogisticRegression(max_iter=1000)),
+    ("RandForest", RandomForestClassifier(max_depth=None, criterion="log_loss")),
+]
+model_pipelines = [
+    (name, Pipeline([("transformer", vectorizer), ("classifier", model)]))
+    for name, model in models
+]
+
+
+cv_stats = []
+metrics = []
+
 print(tabulate(dims))
 
-for m in model_pipelines:
+for model_name, model_pipeline in model_pipelines:
 
-    model_name = m[0]
-    model_pipeline = m[1]
+    # Fitting the model
 
-    print(model_name.upper() + "\n")
+    print("\n" + model_name.upper() + "\n")
     log("Fitting...", model_pipeline.fit, X_train, y_train)
 
+    # K-Fold cross validation
+
+    cv_res = log(
+        "Cross validating...",
+        cross_validate,
+        estimator=model_pipeline,
+        X=X,
+        y=y,
+        cv=5,
+        n_jobs=5,
+        scoring=["accuracy", "precision"],
+    )
+
+    # Compute stats from the K-fold CV
+
+    stats = mean_std_stats(
+        model_name,
+        cv_res,
+        "test_accuracy",
+        "test_precision",
+        "fit_time",
+    )
+
+    # Use the fitted model and compute some metrics
+
     y_pred = model_pipeline.predict(X_test)
+    y_train_pred = model_pipeline.predict(X_train)
     y_score = model_pipeline.predict_proba(X_test)[:, 1]
-    metrics = [
-        ["Accuracy", accuracy_score(y_test, y_pred)],
-        ["Precision", precision_score(y_test, y_pred)],
-        ["ROC AUC", roc_auc_score(y_test, y_pred)],
+    metric = [
+        ["Training error", 1 - accuracy_score(y_train, y_train_pred)],
+        ["Validation error", 0],  # 1 - stats[1]],
+        ["Test error", 1 - accuracy_score(y_test, y_pred)],
+        ["Test precision", precision_score(y_test, y_pred)],
+        ["Test ROC AUC", roc_auc_score(y_test, y_pred)],
     ]
-    print(tabulate(metrics))
+    print(tabulate(metric))
+
+    # Append acquired metrics and stats to table.
+
+    cv_stats.append(stats)
+    metrics.append([model_name] + [score for _, score in metric])
+
+    # Save plots and the model for interaction
 
     log(
         f"Saving confusion matrix plot...",
@@ -139,25 +189,28 @@ for m in model_pipelines:
 
     log(f"Saving model...", dump_model, model_name)
 
-    # K-Fold cross validation
+# Table headers...
 
-    cv_res = log(
-        "Cross validating...",
-        cross_validate,
-        estimator=model_pipeline,
-        X=X,
-        y=y,
-        cv=5,
-        n_jobs=5,
-        scoring=["accuracy", "precision"],
-    )
+cv_headers = [
+    "Model",
+    "Mean acc.",
+    "StD acc.",
+    "Mean prec.",
+    "StD prec.",
+    "Mean train t (s)",
+    "StD train t (s)",
+]
 
-    stats = mean_std_stats(
-        cv_res,
-        ("Fit t", "fit_time"),
-        ("Score t", "score_time"),
-        ("acc.", "test_accuracy"),
-        ("prec.", "test_precision"),
-    )
+metrics_headers = [
+    "Model",
+    "Training error",
+    "Validation error",
+    "Test error",
+    "Test precision",
+    "Test ROC AUC",
+]
 
-    print(tabulate(stats))
+# Save the tables ready in LaTeX format.
+
+save_table(cv_stats, "cv", "total", headers=cv_headers)
+save_table(metrics, "metrics", "total", headers=metrics_headers)
